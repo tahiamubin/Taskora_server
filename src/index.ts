@@ -34,6 +34,12 @@ export async function connectToMongoDB() {
       },
     );
 
+    app.get("/problems", async (req: Request, res: Response) => {
+      const result = await problemsCollection.find().toArray();
+
+      res.json(result);
+    });
+
     //console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
