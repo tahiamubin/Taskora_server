@@ -15,22 +15,24 @@ const client = new MongoClient(process.env.MONGO_URL as string);
 export async function connectToMongoDB() {
   try {
     await client.connect();
-    const database = client.db("codeTrail")
-    const problemsCollection = database.collection<ProblemFormData>("problems")
+    const database = client.db("codeTrail");
+    const problemsCollection = database.collection<ProblemFormData>("problems");
 
     // students-------------------------
-    
-    // student problem
-    app.post ("/problems", async (req: Request<{},{}, ProblemFormData>, res: Response) => {
-      try{
-       const data = req.body
-       const result = await problemsCollection.insertOne(data)
-       res.json(result)
-      }catch(error){
-        res.status(500).json({ "Failed to add problem" });
-      }
-    })
 
+    // student problem
+    app.post(
+      "/problems",
+      async (req: Request<{}, {}, ProblemFormData>, res: Response) => {
+        try {
+          const data = req.body;
+          const result = await problemsCollection.insertOne(data);
+          res.json(result);
+        } catch (error) {
+          res.status(500).json("Failed to add problem");
+        }
+      },
+    );
 
     //console.log("You successfully connected to MongoDB!");
     return client;
