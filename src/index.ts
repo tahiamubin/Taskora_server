@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { ProblemFormData } from "./types/problem";
 
 dotenv.config();
@@ -39,6 +39,23 @@ export async function connectToMongoDB() {
 
       res.json(result);
     });
+
+    app.patch(
+      "/problems/:id",
+      async (
+        req: Request<{ id: string }, {}, Partial<ProblemFormData>>,
+        res: Response,
+      ) => {
+        const { id } = req.params;
+        const updateData = req.body;
+        const result = await problemsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData },
+        );
+
+        res.json(result);
+      },
+    );
 
     //console.log("You successfully connected to MongoDB!");
     return client;
