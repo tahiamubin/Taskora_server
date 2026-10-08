@@ -57,6 +57,14 @@ export async function connectToMongoDB() {
       },
     );
 
+    app.delete("/problems/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const result = await problemsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.json(result);
+    });
+
     //console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
