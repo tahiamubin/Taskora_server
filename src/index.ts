@@ -72,10 +72,16 @@ export async function connectToMongoDB() {
       try {
         const data = req.body;
         const result = await helpCollection.insertOne(data);
-        res.json(result)
+        res.json(result);
       } catch (error) {
         res.status(500).json("failed to ask for help");
       }
+    });
+
+    // help board
+    app.get("/help", async (req: Request, res: Response) => {
+      const result = await helpCollection.find().toArray();
+      res.json(result);
     });
 
     //console.log("You successfully connected to MongoDB!");
