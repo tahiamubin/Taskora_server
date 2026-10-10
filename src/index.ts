@@ -95,6 +95,24 @@ export async function connectToMongoDB() {
       res.json(result);
     });
 
+    app.delete("/shared-help/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const result = await helpCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.json(result);
+    });
+
+    app.patch("/shared-help/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const updateData = req.body;
+      const result = await helpCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateData },
+      );
+      res.json(result);
+    });
+
     //console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
@@ -104,9 +122,15 @@ export async function connectToMongoDB() {
 
 connectToMongoDB();
 
-app.get("/", (req: Request, res: Response) => {
-  res.send("Server is running");
-});
+app.get(
+  "/",
+  (
+    req: Request<{ id: string }, {}, Partial<AskForHelpFormData>>,
+    res: Response,
+  ) => {
+    res.send("Server is running");
+  },
+);
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
