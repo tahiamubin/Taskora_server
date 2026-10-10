@@ -84,6 +84,17 @@ export async function connectToMongoDB() {
       res.json(result);
     });
 
+    //shared help --> student
+    app.get("/shared-help/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const result = await helpCollection
+        .find({
+          userId: id,
+        })
+        .toArray();
+      res.json(result);
+    });
+
     //console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
