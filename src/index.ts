@@ -78,6 +78,15 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.get("/contest", async (req: Request, res: Response) => {
+      try {
+        const result = await contestCollection.find().toArray();
+        res.json(result);
+      } catch (error) {
+        res.status(500).json("Failed to fetch data");
+      }
+    });
+
     // ask for help
     app.post("/help", async (req: Request, res: Response) => {
       try {
