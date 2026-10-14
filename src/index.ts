@@ -18,6 +18,7 @@ export async function connectToMongoDB() {
     await client.connect();
     const database = client.db("codeTrail");
     const problemsCollection = database.collection<ProblemFormData>("problems");
+    const contestCollection = database.collection<ProblemFormData>("contest");
     const helpCollection = database.collection<AskForHelpFormData>("help");
 
     // students-------------------------
@@ -65,6 +66,16 @@ export async function connectToMongoDB() {
         _id: new ObjectId(id),
       });
       res.json(result);
+    });
+
+    app.post("/contest", async (req: Request, res: Response) => {
+      try {
+        const data = req.body;
+        const result = await contestCollection.insertOne(data);
+        res.json(result);
+      } catch (error) {
+        res.status(500).json("Failed to add contest");
+      }
     });
 
     // ask for help
