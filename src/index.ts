@@ -87,6 +87,24 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.patch("/contest/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const updateData = req.body;
+      const result = await contestCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateData },
+      );
+      res.json(result);
+    });
+
+    app.delete("/contest/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const result = await contestCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.json(result);
+    });
+
     // ask for help
     app.post("/help", async (req: Request, res: Response) => {
       try {
