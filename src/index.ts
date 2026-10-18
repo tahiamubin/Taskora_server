@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
 import { ProblemFormData } from "./types/problem";
 import { AskForHelpFormData } from "./types/help";
+import { InterviewPrep } from "./types/interview-prep";
 
 dotenv.config();
 
@@ -20,6 +21,8 @@ export async function connectToMongoDB() {
     const problemsCollection = database.collection<ProblemFormData>("problems");
     const contestCollection = database.collection<ProblemFormData>("contest");
     const helpCollection = database.collection<AskForHelpFormData>("help");
+    const InterviewPrepCollection =
+      database.collection<InterviewPrep>("Interview-prep");
 
     // students-------------------------
 
@@ -149,6 +152,29 @@ export async function connectToMongoDB() {
         { $set: updateData },
       );
       res.json(result);
+    });
+
+    //Interview prep
+    app.post("/interview-prep", async (req: Request, res: Response) => {
+      try {
+        const data = req.body;
+        const result = await InterviewPrepCollection.insertOne(data);
+        res.json(result);
+      } catch (error) {
+        res.status(500).json("failed to ask for help");
+      }
+    });
+
+    app.get("/interview-prep/:id", async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        const result = await InterviewPrepCollection.find({
+          userId: id,
+        }).toArray();
+        res.json(result);
+      } catch (error) {
+        res.status(500).json("Failed to post interview prep");
+      }
     });
 
     //console.log("You successfully connected to MongoDB!");
