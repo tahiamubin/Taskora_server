@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
 import { ProblemFormData } from "./types/problem";
 import { AskForHelpFormData } from "./types/help";
-import { InterviewPrep } from "./types/interview-prep";
+import { InterviewPrep, Topic, InterviewTopicDoc } from "./types/interview-prep";
 
 dotenv.config();
 
@@ -21,8 +21,10 @@ export async function connectToMongoDB() {
     const problemsCollection = database.collection<ProblemFormData>("problems");
     const contestCollection = database.collection<ProblemFormData>("contest");
     const helpCollection = database.collection<AskForHelpFormData>("help");
-    const InterviewPrepCollection =
-      database.collection<InterviewPrep>("Interview-prep");
+    const InterviewCompanyCollection =
+      database.collection<InterviewPrep>("Interview-company");
+    const InterviewTopicCollection =
+      database.collection<InterviewPrep>("Interview-topic");
 
     // students-------------------------
 
@@ -158,7 +160,7 @@ export async function connectToMongoDB() {
     app.post("/interview-prep", async (req: Request, res: Response) => {
       try {
         const data = req.body;
-        const result = await InterviewPrepCollection.insertOne(data);
+        const result = await InterviewCompanyCollection.insertOne(data);
         res.json(result);
       } catch (error) {
         res.status(500).json("failed to ask for help");
@@ -168,7 +170,7 @@ export async function connectToMongoDB() {
     app.get("/interview-prep/:id", async (req: Request, res: Response) => {
       try {
         const { id } = req.params;
-        const result = await InterviewPrepCollection.find({
+        const result = await InterviewCompanyCollection.find({
           userId: id,
         }).toArray();
         res.json(result);
@@ -176,6 +178,147 @@ export async function connectToMongoDB() {
         res.status(500).json("Failed to post interview prep");
       }
     });
+    app.delete("/interview-prep/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const result = await InterviewCompanyCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.json(result);
+    });
+
+    app.patch("/interview-prep/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const updateData = req.body;
+      const result = await InterviewCompanyCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateData },
+      );
+      res.json(result);
+    });
+
+   // 1. Topic যোগ করা (array-র শেষে যাবে)
+app.post("/interview-topic", async (req: Request, res: Response) => {
+  try {
+    const { planId, userId, title } = req.body;
+    const cleanTitle = typeof title === "string" ? title.trim() : "";
+
+    if (!ObjectId.isValid(planId) || !userId || !cleanTitle) {
+      return res
+        .status(400)
+        .json({ message: "planId, userId and title are required" });
+    }
+
+    const topic: Topic = {
+      id: new ObjectId(),
+      title: cleanTitle,
+      isDone: false,
+      createdAt: new Date(),
+    };
+
+    await InterviewTopicCollection.updateOne(
+      { planId: new ObjectId(planId), userId },
+      { $push: { topics: topic }, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true },
+    );
+
+    res.status(201).json(topic);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to add topic" });
+  }
+});
+
+// 2. একটা plan-এর সব topic আনা
+app.get("/interview-topic/:planId", async (req: Request, res: Response) => {
+  try {
+    const { planId } = req.params;
+    const userId = String(req.query.userId ?? "");
+
+    if (!ObjectId.isValid(planId) || !userId) {
+      return res.status(400).json({ message: "Invalid planId or userId" });
+    }
+
+    const doc = await InterviewTopicCollection.findOne({
+      planId: new ObjectId(planId),
+      userId,
+    });
+
+    res.json(doc?.topics ?? []);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch topics" });
+  }
+});
+
+// 3. Topic পড়া শেষ (isDone) বা নাম বদলানো
+app.patch(
+  "/interview-topic/:planId/:topicId",
+  async (req: Request, res: Response) => {
+    try {
+      const { planId, topicId } = req.params;
+      const { userId, isDone, title } = req.body;
+
+      if (!ObjectId.isValid(planId) || !ObjectId.isValid(topicId) || !userId) {
+        return res.status(400).json({ message: "Invalid ids or userId" });
+      }
+
+      const set: Document = {};
+      if (typeof isDone === "boolean") set["topics.$.isDone"] = isDone;
+      if (typeof title === "string" && title.trim()) {
+        set["topics.$.title"] = title.trim();
+      }
+
+      if (Object.keys(set).length === 0) {
+        return res.status(400).json({ message: "Nothing to update" });
+      }
+
+      const result = await InterviewTopicCollection.updateOne(
+        {
+          planId: new ObjectId(planId),
+          userId,
+          "topics.id": new ObjectId(topicId),
+        },
+        { $set: set },
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ message: "Topic not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update topic" });
+    }
+  },
+);
+
+// 4. Topic মুছে ফেলা
+app.delete(
+  "/interview-topic/:planId/:topicId",
+  async (req: Request, res: Response) => {
+    try {
+      const { planId, topicId } = req.params;
+      const userId = String(req.query.userId ?? "");
+
+      if (!ObjectId.isValid(planId) || !ObjectId.isValid(topicId) || !userId) {
+        return res.status(400).json({ message: "Invalid ids or userId" });
+      }
+
+      const result = await InterviewTopicCollection.updateOne(
+        { planId: new ObjectId(planId), userId },
+        { $pull: { topics: { id: new ObjectId(topicId) } } },
+      );
+
+      if (result.modifiedCount === 0) {
+        return res.status(404).json({ message: "Topic not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete topic" });
+    }
+  },
+);
+
+
 
     //console.log("You successfully connected to MongoDB!");
     return client;
