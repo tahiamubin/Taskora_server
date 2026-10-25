@@ -3,7 +3,12 @@ import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
 import { ProblemFormData } from "./types/problem";
 import { AskForHelpFormData } from "./types/help";
-import { InterviewPrep, Topic, InterviewTopicDoc } from "./types/interview-prep";
+import {
+  InterviewPrep,
+  Topic,
+  InterviewTopicDoc,
+} from "./types/interview-prep";
+import { ContestFormData } from "./types/Contest";
 
 dotenv.config();
 
@@ -42,8 +47,13 @@ export async function connectToMongoDB() {
       },
     );
 
-    app.get("/problems", async (req: Request, res: Response) => {
-      const result = await problemsCollection.find().toArray();
+    app.get("/problems/:id", async (req: Request, res: Response) => {
+      const { id } = req.params;
+      const result = await problemsCollection
+        .find({
+          userId: id,
+        })
+        .toArray();
 
       res.json(result);
     });
@@ -73,7 +83,7 @@ export async function connectToMongoDB() {
       res.json(result);
     });
 
-    app.post("/contest", async (req: Request, res: Response) => {
+    app.post("/contest", async (req: Request<{}, {}, ContestFormData>, res: Response) => {
       try {
         const data = req.body;
         const result = await contestCollection.insertOne(data);
@@ -83,9 +93,12 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.get("/contest", async (req: Request, res: Response) => {
+    app.get("/contest/:id", async (req: Request, res: Response) => {
       try {
-        const result = await contestCollection.find().toArray();
+        const {id} = req.params;
+        const result = await contestCollection.find(
+         { userId: id}
+        ).toArray();
         res.json(result);
       } catch (error) {
         res.status(500).json("Failed to fetch data");
@@ -196,129 +209,132 @@ export async function connectToMongoDB() {
       res.json(result);
     });
 
-   // 1. Topic যোগ করা (array-র শেষে যাবে)
-app.post("/interview-topic", async (req: Request, res: Response) => {
-  try {
-    const { planId, userId, title } = req.body;
-    const cleanTitle = typeof title === "string" ? title.trim() : "";
+    // 1. Topic যোগ করা (array-র শেষে যাবে)
+    app.post("/interview-topic", async (req: Request, res: Response) => {
+      try {
+        const { planId, userId, title } = req.body;
+        const cleanTitle = typeof title === "string" ? title.trim() : "";
 
-    if (!ObjectId.isValid(planId) || !userId || !cleanTitle) {
-      return res
-        .status(400)
-        .json({ message: "planId, userId and title are required" });
-    }
+        if (!ObjectId.isValid(planId) || !userId || !cleanTitle) {
+          return res
+            .status(400)
+            .json({ message: "planId, userId and title are required" });
+        }
 
-    const topic: Topic = {
-      id: new ObjectId(),
-      title: cleanTitle,
-      isDone: false,
-      createdAt: new Date(),
-    };
+        const topic: Topic = {
+          id: new ObjectId(),
+          title: cleanTitle,
+          isDone: false,
+          createdAt: new Date(),
+        };
 
-    await InterviewTopicCollection.updateOne(
-      { planId: new ObjectId(planId), userId },
-      { $push: { topics: topic }, $setOnInsert: { createdAt: new Date() } },
-      { upsert: true },
-    );
+        await InterviewTopicCollection.updateOne(
+          { planId: new ObjectId(planId), userId },
+          { $push: { topics: topic }, $setOnInsert: { createdAt: new Date() } },
+          { upsert: true },
+        );
 
-    res.status(201).json(topic);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to add topic" });
-  }
-});
-
-// 2. একটা plan-এর সব topic আনা
-app.get("/interview-topic/:planId", async (req: Request, res: Response) => {
-  try {
-    const { planId } = req.params;
-    const userId = String(req.query.userId ?? "");
-
-    if (!ObjectId.isValid(planId) || !userId) {
-      return res.status(400).json({ message: "Invalid planId or userId" });
-    }
-
-    const doc = await InterviewTopicCollection.findOne({
-      planId: new ObjectId(planId),
-      userId,
+        res.status(201).json(topic);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to add topic" });
+      }
     });
 
-    res.json(doc?.topics ?? []);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch topics" });
-  }
-});
+    // 2. একটা plan-এর সব topic আনা
+    app.get("/interview-topic/:planId", async (req: Request, res: Response) => {
+      try {
+        const { planId } = req.params;
+        const userId = String(req.query.userId ?? "");
 
-// 3. Topic পড়া শেষ (isDone) বা নাম বদলানো
-app.patch(
-  "/interview-topic/:planId/:topicId",
-  async (req: Request, res: Response) => {
-    try {
-      const { planId, topicId } = req.params;
-      const { userId, isDone, title } = req.body;
+        if (!ObjectId.isValid(planId) || !userId) {
+          return res.status(400).json({ message: "Invalid planId or userId" });
+        }
 
-      if (!ObjectId.isValid(planId) || !ObjectId.isValid(topicId) || !userId) {
-        return res.status(400).json({ message: "Invalid ids or userId" });
-      }
-
-      const set: Document = {};
-      if (typeof isDone === "boolean") set["topics.$.isDone"] = isDone;
-      if (typeof title === "string" && title.trim()) {
-        set["topics.$.title"] = title.trim();
-      }
-
-      if (Object.keys(set).length === 0) {
-        return res.status(400).json({ message: "Nothing to update" });
-      }
-
-      const result = await InterviewTopicCollection.updateOne(
-        {
+        const doc = await InterviewTopicCollection.findOne({
           planId: new ObjectId(planId),
           userId,
-          "topics.id": new ObjectId(topicId),
-        },
-        { $set: set },
-      );
+        });
 
-      if (result.matchedCount === 0) {
-        return res.status(404).json({ message: "Topic not found" });
+        res.json(doc?.topics ?? []);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch topics" });
       }
+    });
 
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update topic" });
-    }
-  },
-);
+    // edit and delete button
+    app.patch(
+      "/interview-topic/:planId/:topicId",
+      async (req: Request, res: Response) => {
+        try {
+          const { planId, topicId } = req.params;
+          const { userId, isDone, title } = req.body;
 
-// 4. Topic মুছে ফেলা
-app.delete(
-  "/interview-topic/:planId/:topicId",
-  async (req: Request, res: Response) => {
-    try {
-      const { planId, topicId } = req.params;
-      const userId = String(req.query.userId ?? "");
+          if (
+            !ObjectId.isValid(planId) ||
+            !ObjectId.isValid(topicId) ||
+            !userId
+          ) {
+            return res.status(400).json({ message: "Invalid ids or userId" });
+          }
 
-      if (!ObjectId.isValid(planId) || !ObjectId.isValid(topicId) || !userId) {
-        return res.status(400).json({ message: "Invalid ids or userId" });
-      }
+          const set: Document = {};
+          if (typeof isDone === "boolean") set["topics.$.isDone"] = isDone;
+          if (typeof title === "string" && title.trim()) {
+            set["topics.$.title"] = title.trim();
+          }
 
-      const result = await InterviewTopicCollection.updateOne(
-        { planId: new ObjectId(planId), userId },
-        { $pull: { topics: { id: new ObjectId(topicId) } } },
-      );
+          if (Object.keys(set).length === 0) {
+            return res.status(400).json({ message: "Nothing to update" });
+          }
 
-      if (result.modifiedCount === 0) {
-        return res.status(404).json({ message: "Topic not found" });
-      }
+          const result = await InterviewTopicCollection.updateOne(
+            {
+              planId: new ObjectId(planId),
+              userId,
+              "topics.id": new ObjectId(topicId),
+            },
+            { $set: set },
+          );
 
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete topic" });
-    }
-  },
-);
+          if (result.matchedCount === 0) {
+            return res.status(404).json({ message: "Topic not found" });
+          }
 
+          res.json({ success: true });
+        } catch (error) {
+          res.status(500).json({ message: "Failed to update topic" });
+        }
+      },
+    );
 
+    // 4. Topic মুছে ফেলা
+
+    // app.delete(
+    //   "/interview-topic/:planId/:topicId",
+    //   async (req: Request, res: Response) => {
+    //     try {
+    //       const { planId, topicId } = req.params;
+    //       const userId = String(req.query.userId ?? "");
+
+    //       if (!ObjectId.isValid(planId) || !ObjectId.isValid(topicId) || !userId) {
+    //         return res.status(400).json({ message: "Invalid ids or userId" });
+    //       }
+
+    //       const result = await InterviewTopicCollection.updateOne(
+    //         { planId: new ObjectId(planId), userId },
+    //         { $pull: { topics: { id: new ObjectId(topicId) } } },
+    //       );
+
+    //       if (result.modifiedCount === 0) {
+    //         return res.status(404).json({ message: "Topic not found" });
+    //       }
+
+    //       res.json({ success: true });
+    //     } catch (error) {
+    //       res.status(500).json({ message: "Failed to delete topic" });
+    //     }
+    //   },
+    // );
 
     //console.log("You successfully connected to MongoDB!");
     return client;
