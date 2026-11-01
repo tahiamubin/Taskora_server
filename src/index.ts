@@ -30,7 +30,7 @@ export async function connectToMongoDB() {
       database.collection<InterviewPrep>("Interview-company");
     const InterviewTopicCollection =
       database.collection<InterviewPrep>("Interview-topic");
-
+   
     // students-------------------------
 
     // student problem
@@ -83,22 +83,23 @@ export async function connectToMongoDB() {
       res.json(result);
     });
 
-    app.post("/contest", async (req: Request<{}, {}, ContestFormData>, res: Response) => {
-      try {
-        const data = req.body;
-        const result = await contestCollection.insertOne(data);
-        res.json(result);
-      } catch (error) {
-        res.status(500).json("Failed to add contest");
-      }
-    });
+    app.post(
+      "/contest",
+      async (req: Request<{}, {}, ContestFormData>, res: Response) => {
+        try {
+          const data = req.body;
+          const result = await contestCollection.insertOne(data);
+          res.json(result);
+        } catch (error) {
+          res.status(500).json("Failed to add contest");
+        }
+      },
+    );
 
     app.get("/contest/:id", async (req: Request, res: Response) => {
       try {
-        const {id} = req.params;
-        const result = await contestCollection.find(
-         { userId: id}
-        ).toArray();
+        const { id } = req.params;
+        const result = await contestCollection.find({ userId: id }).toArray();
         res.json(result);
       } catch (error) {
         res.status(500).json("Failed to fetch data");
