@@ -9,6 +9,7 @@ import {
   InterviewTopicDoc,
 } from "./types/interview-prep";
 import { ContestFormData } from "./types/Contest";
+import { LEVELS, PointEntry } from "./types/points";
 
 dotenv.config();
 
@@ -30,7 +31,7 @@ export async function connectToMongoDB() {
       database.collection<InterviewPrep>("Interview-company");
     const InterviewTopicCollection =
       database.collection<InterviewPrep>("Interview-topic");
-   
+
     // students-------------------------
 
     // student problem
@@ -307,6 +308,76 @@ export async function connectToMongoDB() {
         }
       },
     );
+
+    // points
+    app.get("/points/:id", async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+
+        const [problems, contests] = await Promise.all([
+          problemsCollection.find({ userId: id }).toArray(),
+          contestCollection.find({ userId: id }).toArray(),
+        ]);
+
+        const entries: PointEntry[] = [];
+        const seen = new Set<string>(); // same link = no second points
+
+        for (const p of problems as any[]) {
+          const link = String(p.solutionLink ?? "")
+            .trim()
+            .toLowerCase();
+          if (link && seen.has("p" + link)) continue;
+          seen.add("p" + link);
+
+          const base: Record<string, number> = { Easy: 1, Medium: 3, Hard: 5 };
+          let points = base[p.difficulty] ?? 0;
+          if (String(p.attempted).toLowerCase() === "yes") points += 2;
+          if (String(p.description ?? "").trim().length >= 100) points += 1;
+
+          entries.push({
+            _id: p._id.toString(),
+            type: "problem",
+            points,
+            reason: `Solved ${p.difficulty}: ${p.name}`,
+            createdAt: p._id.getTimestamp(),
+          });
+        }
+
+        for (const c of contests as any[]) {
+          const link = String(c.solutionLink ?? "")
+            .trim()
+            .toLowerCase();
+          if (link && seen.has("c" + link)) continue;
+          seen.add("c" + link);
+
+          const rank = Number(c.rank);
+          const total = Number(c.totalParticipants);
+
+          let points = link ? 5 : 0;
+          if (rank === 1) points += 20;
+          else if (rank === 2) points += 15;
+          else if (rank === 3) points += 10;
+          if (rank > 0 && total > 0 && rank / total <= 0.1) points += 5;
+
+          entries.push({
+            _id: c._id.toString(),
+            type: "contest",
+            points,
+            reason: `Contest: ${c.name}`,
+            createdAt: c._id.getTimestamp(),
+          });
+        }
+
+        const total = entries.reduce((sum, e) => sum + e.points, 0);
+        const level = LEVELS.find((l) => total >= l.min)!.name;
+
+        entries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+        res.json({ total, level, entries: entries.slice(0, 20) });
+      } catch (error) {
+        res.status(500).json("Failed to fetch points");
+      }
+    });
 
     // 4. Topic মুছে ফেলা
 

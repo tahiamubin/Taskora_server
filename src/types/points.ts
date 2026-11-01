@@ -1,8 +1,15 @@
 export interface PointEntry {
-  userId: string;
+  _id: string;
   type: "problem" | "contest";
-  refId: string; // the link, so the same link gives points only once
   points: number;
   reason: string;
   createdAt: Date;
 }
+
+export const LEVELS = [
+  { name: "Diamond", min: 3000 },
+  { name: "Platinum", min: 1500 },
+  { name: "Gold", min: 600 },
+  { name: "Silver", min: 200 },
+  { name: "Bronze", min: 0 },
+];
