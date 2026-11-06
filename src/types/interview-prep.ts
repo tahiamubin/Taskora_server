@@ -2,16 +2,17 @@ export interface InterviewPrep {
   title: string;
   company: string;
   targetDate: string;
+  topics?: Topic[];
 }
 
-interface Topic {
+export interface Topic {
   id: string;
   title: string;
   isDone: boolean;
   createdAt: Date;
 }
 
-interface InterviewTopicDoc {
+export interface InterviewTopicDoc {
   _id?: string;
   planId: string;
   userId: string;

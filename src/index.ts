@@ -1,20 +1,17 @@
+
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
 import { ProblemFormData } from "./types/problem";
 import { AskForHelpFormData } from "./types/help";
-import {
-  InterviewPrep,
-  Topic,
-  InterviewTopicDoc,
-} from "./types/interview-prep";
+import { InterviewPrep, Topic } from "./types/interview-prep";
 import { ContestFormData } from "./types/Contest";
 import { LEVELS, PointEntry } from "./types/points";
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT ;
 
 app.use(express.json());
 
@@ -25,7 +22,7 @@ export async function connectToMongoDB() {
     await client.connect();
     const database = client.db("codeTrail");
     const problemsCollection = database.collection<ProblemFormData>("problems");
-    const contestCollection = database.collection<ProblemFormData>("contest");
+    const contestCollection = database.collection<ContestFormData>("contests");
     const helpCollection = database.collection<AskForHelpFormData>("help");
     const InterviewCompanyCollection =
       database.collection<InterviewPrep>("Interview-company");
@@ -111,7 +108,7 @@ export async function connectToMongoDB() {
       const { id } = req.params;
       const updateData = req.body;
       const result = await contestCollection.updateOne(
-        { _id: new ObjectId(id) },
+        { _id: new ObjectId(id).toString() },
         { $set: updateData },
       );
       res.json(result);
@@ -120,7 +117,7 @@ export async function connectToMongoDB() {
     app.delete("/contest/:id", async (req: Request, res: Response) => {
       const { id } = req.params;
       const result = await contestCollection.deleteOne({
-        _id: new ObjectId(id),
+        _id: new ObjectId(id).toString(),
       });
       res.json(result);
     });
@@ -224,7 +221,7 @@ export async function connectToMongoDB() {
         }
 
         const topic: Topic = {
-          id: new ObjectId(),
+          id: new ObjectId().toString(),
           title: cleanTitle,
           isDone: false,
           createdAt: new Date(),
@@ -279,7 +276,7 @@ export async function connectToMongoDB() {
             return res.status(400).json({ message: "Invalid ids or userId" });
           }
 
-          const set: Document = {};
+          const set: Record<string, unknown> = {};
           if (typeof isDone === "boolean") set["topics.$.isDone"] = isDone;
           if (typeof title === "string" && title.trim()) {
             set["topics.$.title"] = title.trim();
@@ -309,7 +306,37 @@ export async function connectToMongoDB() {
       },
     );
 
+    // 4. Topic মুছে ফেলা
+
+    // app.delete(
+    //   "/interview-topic/:planId/:topicId",
+    //   async (req: Request, res: Response) => {
+    //     try {
+    //       const { planId, topicId } = req.params;
+    //       const userId = String(req.query.userId ?? "");
+
+    //       if (!ObjectId.isValid(planId) || !ObjectId.isValid(topicId) || !userId) {
+    //         return res.status(400).json({ message: "Invalid ids or userId" });
+    //       }
+
+    //       const result = await InterviewTopicCollection.updateOne(
+    //         { planId: new ObjectId(planId), userId },
+    //         { $pull: { topics: { id: new ObjectId(topicId) } } },
+    //       );
+
+    //       if (result.modifiedCount === 0) {
+    //         return res.status(404).json({ message: "Topic not found" });
+    //       }
+
+    //       res.json({ success: true });
+    //     } catch (error) {
+    //       res.status(500).json({ message: "Failed to delete topic" });
+    //     }
+    //   },
+    // );
+
     // points
+
     app.get("/points/:id", async (req: Request, res: Response) => {
       try {
         const { id } = req.params;
@@ -379,35 +406,6 @@ export async function connectToMongoDB() {
       }
     });
 
-    // 4. Topic মুছে ফেলা
-
-    // app.delete(
-    //   "/interview-topic/:planId/:topicId",
-    //   async (req: Request, res: Response) => {
-    //     try {
-    //       const { planId, topicId } = req.params;
-    //       const userId = String(req.query.userId ?? "");
-
-    //       if (!ObjectId.isValid(planId) || !ObjectId.isValid(topicId) || !userId) {
-    //         return res.status(400).json({ message: "Invalid ids or userId" });
-    //       }
-
-    //       const result = await InterviewTopicCollection.updateOne(
-    //         { planId: new ObjectId(planId), userId },
-    //         { $pull: { topics: { id: new ObjectId(topicId) } } },
-    //       );
-
-    //       if (result.modifiedCount === 0) {
-    //         return res.status(404).json({ message: "Topic not found" });
-    //       }
-
-    //       res.json({ success: true });
-    //     } catch (error) {
-    //       res.status(500).json({ message: "Failed to delete topic" });
-    //     }
-    //   },
-    // );
-
     //console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
@@ -415,17 +413,15 @@ export async function connectToMongoDB() {
   }
 }
 
+//connectToMongoDB();
+
+app.get("/", (req: Request, res: Response) => {
+  res.send("Server is running");
+});
+
 connectToMongoDB();
 
-app.get(
-  "/",
-  (
-    req: Request<{ id: string }, {}, Partial<AskForHelpFormData>>,
-    res: Response,
-  ) => {
-    res.send("Server is running");
-  },
-);
+export default app;
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
